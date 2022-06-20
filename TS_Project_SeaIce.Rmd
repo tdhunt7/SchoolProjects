@@ -1,0 +1,83 @@
+---
+title: "TS_Project_SeaIce"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Sea Ice
+
+```{r}
+library(roll)
+library(xts)
+library(fracdiff)
+library(imputeTS)
+```
+
+```{r}
+seaice.dat <- read.csv("datafiles/seaice.csv", header=TRUE, stringsAsFactors = FALSE)
+head(seaice.dat)
+seaice.ts <- ts(seaice.dat[,5], start = c(1987, 8, 20), frequency = 365.25)
+plot(seaice.ts, xlab = 'Time', ylab = 'Extent Missing (10^6 sq. km.)', type='l')
+start(seaice.ts)
+end(seaice.ts)
+```
+
+DETERMINISTIC
+```{r}
+t.var <- time(seaice.ts) - mean(time(seaice.ts))/
+  sd(time(seaice.ts))
+seaice.lm1 <- lm(seaice.ts ~ t.var
+                 + I(sin(2*pi*time(seaice.ts))) + I(cos(2*pi*time(seaice.ts)))
+                 + I(sin(4*pi*time(seaice.ts))) + I(cos(4*pi*time(seaice.ts)))
+                 + I(sin(6*pi*time(seaice.ts))) + I(cos(6*pi*time(seaice.ts)))
+                 + I(sin(8*pi*time(seaice.ts))) + I(cos(8*pi*time(seaice.ts)))
+                 + I(sin(10*pi*time(seaice.ts))) + I(cos(10*pi*time(seaice.ts)))
+                 + I(sin(12*pi*time(seaice.ts))) + I(cos(12*pi*time(seaice.ts))))
+seaice.lm2 <- step(seaice.lm1, trace=FALSE)
+seaice.pred <- ts(predict(seaice.lm2),start=c(1987, 8, 20),frequency = 365.25)
+ts.plot(seaice.ts,seaice.pred,col=c("black","red"),main="Model vs Original Time Series", ylab = 'Extent Missing (10^6 sq. km.)')
+plot(seaice.lm2$residuals, type='l', main= "Residuals")
+acf(seaice.lm2$residuals, lag.max = 100, main="Residuals")
+plot(roll_mean(seaice.lm2$residuals, 1200), type='l')
+plot(roll_var(seaice.lm2$residuals, 1200), type='l')
+seaice.lm2
+```
+
+AR
+```{r}
+seaice.res.ar <- ar(seaice.lm2$residuals)
+seaice.res.ar
+acf(seaice.res.ar$resid, na.action = na.pass)
+plot(seaice.res.ar$resid, type='l')
+```
+
+FORECASTING
+
+```{r}
+new.t.var <- seq(end(seaice.ts),2050,1/frequency(seaice.ts))
+w <- rnorm(length(new.t.var),sd = sd(seaice.res.ar$resid,na.rm = TRUE))
+z <- w
+for(t in 11:length(new.t.var))
+  z[t] = seaice.res.ar$ar[1]*z[t-1] + seaice.res.ar$ar[2]*z[t-2] + seaice.res.ar$ar[3]*z[t-3] + 
+        seaice.res.ar$ar[4]*z[t-4] + seaice.res.ar$ar[5]*z[t-5] + seaice.res.ar$ar[6]*z[t-6] +
+        seaice.res.ar$ar[7]*z[t-7] + seaice.res.ar$ar[8]*z[t-8] + seaice.res.ar$ar[9]*z[t-9] +
+        seaice.res.ar$ar[10]*z[t-10] + w[t]
+
+x <- seaice.lm2$coefficients[1] + 
+  
+    seaice.lm2$coefficients[2]*(new.t.var-mean(time(seaice.ts))/sd(time(seaice.ts))) +
+    
+    seaice.lm2$coefficients[3]*sin(2*pi*new.t.var) + seaice.lm2$coefficients[4]*cos(2*pi*new.t.var) +
+    seaice.lm2$coefficients[5]*sin(4*pi*new.t.var) + seaice.lm2$coefficients[6]*cos(4*pi*new.t.var) +
+    seaice.lm2$coefficients[7]*sin(6*pi*new.t.var) + seaice.lm2$coefficients[8]*cos(6*pi*new.t.var) +
+    seaice.lm2$coefficients[9]*sin(8*pi*new.t.var) + seaice.lm2$coefficients[10]*cos(8*pi*new.t.var) +
+    seaice.lm2$coefficients[11]*sin(10*pi*new.t.var) + seaice.lm2$coefficients[12]*sin(10*pi*new.t.var) +         seaice.lm2$coefficients[13]*cos(12*pi*new.t.var) + z
+
+x.ts <- ts(x, start=(end(seaice.ts)), frequency = frequency(seaice.ts))
+plot(x.ts)
+ts.plot(seaice.ts, x.ts,xlab = 'Time', ylab = 'Extent Missing (10^6 sq. km.)', col=c("black","red"))
+```
+

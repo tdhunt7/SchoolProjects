@@ -1,0 +1,64 @@
+---
+title: "stats_project"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+if(!require(devtools)) install.packages("devtools")
+devtools::install_github("kassambara/ggpubr")
+```
+```{r}
+install.packages('ggplot2')
+```
+
+```{r}
+library('ggplot2')
+```
+
+```{r}
+library("ggpubr")
+```
+
+To begin, I read in the data from a .csv file that I created with average height, weight, and fights per game in the NHL since the 1917-18 season.
+
+```{r}
+NHL.dat <- read.csv("stats_proj_csv.csv", header = TRUE, stringsAsFactors = FALSE)
+time <- ts(NHL.dat[,1], start=1917)
+avg.height.ts <- ts(NHL.dat[,3], start = 1917)
+plot(avg.height.ts, type='l')
+avg.weight.ts <- ts(NHL.dat[,4], start=1917)
+plot(avg.weight.ts, type='l')
+fpg.ts <- ts(NHL.dat[,5], start = 1917)
+plot(fpg.ts, type='l')
+```
+
+```{r}
+height.fpg.reg <- lm(FPG ~ Ht..Avg., data=NHL.dat)
+anova(height.fpg.reg)
+```
+
+```{r}
+weight.fpg.reg <- lm(FPG ~ Wt..Avg., data=NHL.dat)
+anova(weight.fpg.reg)
+```
+
+```{r}
+ht.fpg.scatter <- ggscatter(NHL.dat, x = "Ht..Avg.", y = "FPG", 
+                            add = "reg.line", conf.int = TRUE, 
+                            cor.coef = TRUE, cor.method = "pearson",
+                            xlab = "Average Height", ylab = "FPG")
+ht.fpg.scatter
+```
+
+```{r}
+wt.fpg.scatter <- ggscatter(NHL.dat, x = "Wt..Avg.", y = "FPG", 
+                            add = "reg.line", conf.int = TRUE, 
+                            cor.coef = TRUE, cor.method = "pearson",
+                            xlab = "Average Weight", ylab = "FPG")
+wt.fpg.scatter
+```
+
